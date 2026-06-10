@@ -4,193 +4,207 @@
 
 Built for: [BNB Hack: CMC Agent Hackathon 2026](https://coinmarketcap.com/api/hackathon/)  
 Track: Track 1 — Autonomous Trading Agents  
-Stack: CoinMarketCap API + Trust Wallet Agent Kit + BNB AI Agent SDK
+Prize Pool: $36,000 | Special Prizes: $2,000 each  
+Stack: CoinMarketCap API + Trust Wallet Agent Kit (TWAK) + BNB AI Agent SDK + BSC
 
 ---
 
 ## What It Does
 
 SentimentSwipe V2 is an autonomous trading agent that:
-
-1. **Reads market sentiment** from CMC (Fear & Greed, social data, funding rates)
+1. **Reads market sentiment** from CMC (Fear & Greed proxy, price momentum, BTC dominance)
 2. **Makes data-driven decisions** without emotion
-3. **Executes trades autonomously** via Trust Wallet Agent Kit
+3. **Executes trades autonomously** via TWAK or direct Web3/PancakeSwap
 4. **Enforces strict risk guardrails** to prevent blowup
 
-## Architecture
+```
+CMC Data (Fear & Greed, Momentum, BTC Dominance)
+        ↓
+Signal Engine → Composite Score → Action (BUY/SELL/HOLD)
+        ↓
+Risk Manager (drawdown, position size, stop loss)
+        ↓
+TWAK/Web3 Executor → PancakeSwap on BSC → tx broadcast
+```
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  CMC Data (Fear & Greed, Social, Funding)                   │
-│            ↓                                                 │
-│  Signal Engine → Decision (BUY/SELL/HOLD)                   │
-│            ↓                                                 │
-│  Risk Manager (drawdown, position size, guardrails)         │
-│            ↓                                                 │
-│  TWAK Executor → Autonomous Swap on PancakeSwap/BSC        │
-└─────────────────────────────────────────────────────────────┘
-```
+---
 
 ## Signal Logic
 
-| Composite Signal | Action |
-|-----------------|--------|
-| > +40 (Greed) | Take profit, reduce exposure |
-| +20 to +40 | Slight bullish, hold |
-| -20 to +20 | Neutral, minimal position |
-| -20 to -40 | Accumulate, increase exposure |
-| < -40 (Fear) | Buy the dip, max safe exposure |
+| Composite | Action | Meaning |
+|-----------|--------|---------|
+| > +40 | TAKE_PROFIT | Greed — reduce exposure |
+| +20 to +40 | SLIGHT_BULLISH | Slight bullish — hold |
+| -20 to +20 | NEUTRAL | No strong signal |
+| -20 to -40 | ACCUMULATE | Fear — increase exposure |
+| < -40 | BUY_DIP | Extreme fear — buy the dip |
+
+Signal = Fear&Greed(40%) + Momentum(35%) + BTC Dominance(25%)
+
+---
 
 ## Risk Management
 
-- **Max Drawdown:** 15% (auto-conservation) | 30% = DISQ
-- **Stop Loss:** 5% per trade
-- **Take Profit:** 10% with trailing stop
-- **Position Size:** 10% base (up to 20% max)
-- **Daily Trades:** Max 5/day
+| Rule | Value | Purpose |
+|------|-------|---------|
+| Max Drawdown | 15% → conservation, 30% → DISQ | Survival |
+| Stop Loss | 5% per trade | Single-trade protection |
+| Take Profit | 10% + 5% trailing stop | Lock gains |
+| Position Size | 10% base (max 20%) | Diversification |
+| Daily Trades | Max 5/day | Prevent overtrading |
+| Token Selection | 149 eligible BEP-20 only | Competition rules |
+
+---
 
 ## Project Structure
 
 ```
-sentimentswipe/
-├── agent.py                 # Main trading agent
-├── requirements.txt         # Python dependencies
-├── config/
-│   └── config.py           # All configuration
-├── signals/
-│   └── signal_engine.py    # CMC data fetcher + signal calculator
-├── executor/
-│   └── twak_executor.py    # TWAK integration for autonomous execution
-├── risk_manager/
-│   └── risk_engine.py      # Risk controls, position management
-└── dashboard/
-    ├── app.py              # Flask monitoring dashboard
-    └── templates/
-        └── dashboard.html  # Web UI
+hackcmc/
+├── SENTIMENTSWIPE_V2_REPORT.md    # Full architecture doc
+├── run.sh                         # Quick start script
+├── sentimentswipe/
+│   ├── agent.py                   # Main agent + CLI
+│   ├── requirements.txt           # Dependencies
+│   ├── config/
+│   │   └── config.py             # All settings
+│   ├── signals/
+│   │   └── signal_engine.py      # CMC data + signal calculation
+│   ├── executor/
+│   │   ├── twak_executor.py      # TWAK CLI integration
+│   │   └── web3_executor.py      # Web3/PancakeSwap fallback
+│   ├── risk_manager/
+│   │   └── risk_engine.py        # Risk controls
+│   └── dashboard/
+│       ├── app.py                # Flask monitoring API
+│       └── templates/
+│           └── dashboard.html    # Web UI
 ```
 
-## Setup
+---
+
+## Quick Start
 
 ### 1. Install Dependencies
 
 ```bash
-pip install -r requirements.txt
+pip install -r sentimentswipe/requirements.txt
 ```
 
-### 2. Configure Environment
-
-Create `.env` file:
-
-```env
-CMC_API_KEY=your_coinmarketcap_api_key
-AGENT_PRIVATE_KEY=your_agent_wallet_private_key
-```
-
-Get CMC API key: https://coinmarketcap.com/api/
-
-### 3. Generate Agent Wallet
+### 2. Test Signal Engine (No Wallet Needed)
 
 ```bash
-# Use TWAK CLI to generate new wallet
-twak generate --chain 56
-
-# SAVE THE PRIVATE KEY - you need it for .env
+cd sentimentswipe
+python -c "from signals.signal_engine import SignalEngine; from config.config import CMC_API_KEY; se = SignalEngine(CMC_API_KEY); print(se.get_signal_summary())"
 ```
 
-### 4. Register for Competition (Track 1)
+### 3. Run Paper Trading
 
 ```bash
-python agent.py --register
+python agent.py --paper --once          # One cycle test
+python agent.py --paper --capital 200   # Paper trade $200
 ```
 
-This registers your agent wallet on-chain via the competition contract.
+Or use the run script:
+```bash
+./run.sh paper 100
+./run.sh test
+```
 
-### 5. Run the Agent
+### 4. Setup Real Trading
 
 ```bash
-# Paper trading (outside competition window)
-python agent.py --capital 100
+# Generate wallet
+# Save the 64-char hex private key (no 0x)
 
-# Run dashboard (separate terminal)
+# Set private key
+export AGENT_PRIVATE_KEY="<your_hex_key>"
+# or
+python agent.py --key <your_hex_key> --capital 100
+```
+
+### 5. Register for Competition (Track 1)
+
+```bash
+python agent.py --key <PRIVATE_KEY> --register
+```
+
+### 6. Dashboard
+
+```bash
 cd dashboard && python app.py
+# Open http://localhost:5000
 ```
-
-## Competition Rules
-
-- **Dates:** June 22-28, 2026 (live trading week)
-- **Min Trades:** 7 (1/day minimum)
-- **Eligible Tokens:** 149 BEP-20 tokens (full list in config.py)
-- **Risk Gate:** Max 30% drawdown = disqualification
-- **Min Portfolio:** Must maintain >$1 balance
-
-## x402 Integration
-
-SentimentSwipe V2 uses x402 for pay-per-request in the trade loop:
-
-```python
-# Example: Pay for premium social data
-headers = {"x402": "pay 0.001 https://coinmarketcap.com/api/..."}
-data = requests.get(cmc_api, headers=headers)
-```
-
-This demonstrates native x402 usage for special prize criteria.
-
-## TWAK Integration Features
-
-| Feature | Status |
-|---------|--------|
-| Local Signing | ✅ Private key never leaves machine |
-| Autonomous Mode | ✅ Agent signs without manual approval |
-| MCP Actions | ✅ `competition_register`, `swap` |
-| x402 Native | ✅ Real payments in trade loop |
-| BSC/56 Chain | ✅ Primary chain |
-
-## Special Prize Alignment
-
-- **Best Use of TWAK:** Full self-custody, autonomous mode, x402 native
-- **Best Use of Agent Hub:** CMC Fear & Greed, social, funding, x402
-- **Best Use of BNB SDK:** PancakeSwap integration, BSC execution
-
-## Testing
-
-```bash
-# Test signal engine
-python -c "from signals.signal_engine import SignalEngine; ..."
-
-# Test risk manager
-python -c "from risk_manager.risk_engine import RiskManager; ..."
-
-# Paper trade cycle
-python agent.py --capital 100
-```
-
-## Dashboard
-
-Start the monitoring dashboard:
-
-```bash
-cd dashboard
-python app.py
-```
-
-Open http://localhost:5000 to monitor:
-- Portfolio value + P&L
-- Current signal + components
-- Open positions
-- Trade history
-
-## Legal
-
-**THIS IS REAL TRADING WITH REAL MONEY.**
-
-- Past performance does not guarantee future results
-- Only trade with capital you can afford to lose
-- The agent can and will lose money
-
-## License
-
-MIT
 
 ---
 
-Built with ❤️ for the BNB Hack: CMC Agent Hackathon 2026
+## Competition Details
+
+| Item | Detail |
+|------|--------|
+| Dates | Build: June 3-21, 2026 \| Trading: June 22-28, 2026 |
+| Tracks | Track 1: Autonomous Agents ($24k) \| Track 2: Strategy Skills ($6k) |
+| Special Prizes | Best TWAK, Best Agent Hub, Best BNB SDK ($2k each) |
+| Registration | On-chain via `twak compete register` or MCP |
+| Contract | `0x212c61b9b72c95d95bf29cf032f5e5635629aed5` (BSC) |
+| Min Trades | 7 (1/day during trading week) |
+| Disqualification | >30% drawdown or portfolio <$1 |
+| Eligible Tokens | 149 BEP-20 tokens (list in config.py) |
+
+---
+
+## TWAK Integration (Special Prize Criteria)
+
+SentimentSwipe V2 uses TWAK for:
+- **Local Signing**: Private key never leaves machine
+- **Autonomous Mode**: Agent signs txs without manual approval
+- **MCP Integration**: `competition_register`, `swap` actions
+- **x402 Native**: Pay-per-request in trade loop
+
+If TWAK is not installed, falls back to direct Web3/PancakeSwap.
+
+---
+
+## How to Win
+
+### For $10,000 (Track 1 First Place):
+1. Highest return % without hitting 30% drawdown
+2. Use ALL 3 stack layers (CMC + TWAK + BNB SDK)
+3. Show clean self-custody + autonomous execution
+4. Demonstrate x402 in real trade loop
+
+### For $2,000 Special (Best TWAK):
+1. Use TWAK as ONLY execution layer (not just bolted on)
+2. Show autonomous mode — agent drives, no manual signing
+3. Demonstrate x402 for data/inference payments
+4. Clean self-custody throughout (local key, no custodial)
+
+### Differentiation Points:
+- Not just another arbitrage bot
+- Novel sentiment → execution loop
+- Real utility for retail traders
+- Self-custody integrity maintained
+
+---
+
+## Technical Notes
+
+- **BSC RPC**: Uses `bsc.publicnode.com` (works with SSL interception)
+- **CMC API**: v1 endpoints (`/v1/cryptocurrency/quotes/latest`, `/v1/global-metrics/`)
+- **Fear & Greed**: Derived from market cap change + BTC dominance + volume ratio
+- **Paper Trading**: Simulated trades without real wallet
+- **Gas**: BSC ~$0.05-0.20 per swap; estimated $2-5/day total
+
+---
+
+## Disclaimer
+
+**REAL TRADING WITH REAL MONEY.**
+- Agent can and will lose money
+- Past performance does not guarantee future results
+- Only trade with capital you can afford to lose
+- User is responsible for final deployment decision
+
+---
+
+Built for BNB Hack: CMC Agent Hackathon 2026  
+GitHub: https://github.com/xxcode2/hackcmc
