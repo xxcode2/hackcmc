@@ -9,16 +9,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # === API KEYS ===
-CMC_API_KEY="e234f83950e44af38f101284ec4692c1"  # CoinMarketCap API key
+# CoinMarketCap API key - get free key at https://coinmarketcap.com/api/
+CMC_API_KEY = os.getenv("CMC_API_KEY", "e234f83950e44af38f101284ec4692c1")
 
 # === AGENT WALLET ===
-AGENT_PRIVATE_KEY = os.getenv("AGENT_PRIVATE_KEY", "")
 # Generate fresh key for competition. NEVER share this.
+# Format: 64 character hex string (no 0x prefix)
+AGENT_PRIVATE_KEY = os.getenv("AGENT_PRIVATE_KEY", "")
 
 # === TRADING PAIRS (BSC/PancakeSwap) ===
-# Primary trading pairs - these are eligible tokens
-PRIMARY_TOKENS = ["BNB", "BTC", "ETH", "USDT", "USDC", "FDUSD", "USD1", "USDe"]
-TRADING_PAIR = "USDT"  # Quote currency for most trades
+PRIMARY_TOKENS = ["BTC", "ETH", "USDT", "USDC", "FDUSD", "USD1", "USDe", "BNB", "CAKE"]
+TRADING_PAIR = "USDT"  # Quote currency for most swaps
 
 # === SIGNAL WEIGHTS ===
 WEIGHT_FEAR_GREED = 0.40
@@ -38,11 +39,11 @@ MIN_POSITION_VALUE = 5.0        # Min $5 per position
 MAX_POSITION_VALUE = 200.0      # Max $200 per position
 
 # === RISK MANAGEMENT ===
-MAX_DRAWDOWN = 0.15             # 15% drawdown = conservation mode
+MAX_DRAWDOWN = 0.15             # 15% = conservation mode
 DISQUALIFICATION_DRAWDOWN = 0.30  # 30% = emergency exit + pause
 STOP_LOSS_PCT = 0.05            # 5% stop loss per trade
 TAKE_PROFIT_PCT = 0.10          # 10% take profit target
-TRAILING_STOP_PCT = 0.05        # 5% trailing stop after 20% gain
+TRAILING_STOP_PCT = 0.05        # 5% trailing stop after TP
 
 DAILY_TRADE_LIMIT = 5           # Max 5 trades per day
 MIN_TRADES_PER_WEEK = 7         # Competition minimum
@@ -63,11 +64,13 @@ X402_BUDGET_DAILY = 0.50        # Max $0.50/day for x402 calls
 COMPETITION_START = "2026-06-22T00:00:00Z"
 COMPETITION_END = "2026-06-28T23:59:59Z"
 COMPETITION_CONTRACT = "0x212c61b9b72c95d95bf29cf032f5e5635629aed5"
+
+# Eligible BEP-20 tokens for competition (from official list)
 ELIGIBLE_TOKENS = [
     "ETH", "USDT", "USDC", "XRP", "TRX", "DOGE", "ADA", "LINK", "BCH", "DAI",
     "TON", "USD1", "USDe", "M", "LTC", "AVAX", "SHIB", "XAUt", "WLFI", "H",
     "DOT", "UNI", "ASTER", "DEXE", "USDD", "ETC", "AAVE", "ATOM", "U", "STABLE",
-    "FIL", "INJ", "币安人生", "NIGHT", "FET", "TUSD", "BONK", "PENGU", "CAKE",
+    "FIL", "INJ", "NIGHT", "FET", "TUSD", "BONK", "PENGU", "CAKE",
     "SIREN", "LUNC", "ZRO", "KITE", "FDUSD", "BEAT", "PIEVERSE", "BTT", "NFT",
     "EDGE", "FLOKI", "LDO", "B", "FF", "PENDLE", "NEX", "STG", "AXS", "TWT",
     "HOME", "RAY", "COMP", "GWEI", "XCN", "GENIUS", "XPL", "BAT", "SKYAI", "APE",
@@ -81,10 +84,6 @@ ELIGIBLE_TOKENS = [
     "KAVA", "APR", "IRYS", "EURI", "XUSD", "BARD", "DUSK", "SUSHI", "PEAQ",
     "COAI", "BDCA", "XAUM", "BNB"
 ]
-
-# === TWAK SETTINGS ===
-TWAK_MCP_ENABLED = True
-TWAK_AUTONOMOUS_MODE = True
 
 # === LOGGING ===
 LOG_FILE = "logs/sentimentswipe.log"
