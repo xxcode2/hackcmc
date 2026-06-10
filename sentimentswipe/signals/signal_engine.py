@@ -1,22 +1,18 @@
 """
 SENTIMENTSWIPE V2 - Signal Engine
-Fetches and processes sentiment data from CMC API
+Fetches and processes sentiment data from CMC API v1
 """
 
 import requests
 import time
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional, Tuple
-from config.config import (
-    CMC_API_KEY, WEIGHT_FEAR_GREED, WEIGHT_SOCIAL, WEIGHT_FUNDING,
-    SIGNAL_HISTORY_WINDOW
-)
 
 logger = logging.getLogger(__name__)
 
 class SignalEngine:
-    """Fetches and calculates sentiment signals from CMC"""
+    """Fetches and calculates sentiment signals from CMC v1 API"""
     
     BASE_URL = "https://pro-api.coinmarketcap.com"
     
@@ -24,7 +20,8 @@ class SignalEngine:
         self.api_key = api_key
         self.signal_history: List[Dict] = []
         self.last_fetch = None
-        
+        self._prev_market_cap = None
+    
     def _headers(self) -> Dict:
         return {
             "X-CMC_PRO_API_KEY": self.api_key,
@@ -43,160 +40,196 @@ class SignalEngine:
                     logger.warning("Rate limited, waiting 60s...")
                     time.sleep(60)
                 else:
-                    logger.error(f"API error {resp.status_code}: {resp.text}")
+                    logger.error(f"API error {resp.status_code}: {resp.text[:200]}")
             except Exception as e:
                 logger.error(f"Request failed: {e}")
                 time.sleep(5)
         return None
     
-    def get_fear_greed(self) -> Tuple[float, float]:
+    def get_global_metrics(self) -> Optional[Dict]:
+        """Get global market metrics (substitute for Fear & Greed)"""
+        data = self._make_request("/v1/global-metrics/quotes/latest")
+        if data and "data" in data:
+            return data["data"]
+        return None
+    
+    def get_fear_greed_proxy(self) -> Tuple[float, str]:
         """
-        Get Fear & Greed index
+        Derive Fear & Greed proxy from market data:
+        - Market cap change 24h → sentiment
+        - BTC dominance change → risk appetite
+        - Altcoin volume ratio → market mood
+        
         Returns: (value 0-100, timestamp)
         """
-        # CMC uses indicator ID 57 for Fear & Greed
-        data = self._make_request("/v3/indicator/57", {"limit": 1})
-        if data and "data" in data and data["data"]:
-            point = data["data"][0]
-            value = float(point.get("value", 50))
-            timestamp = point.get("timestamp", datetime.now().isoformat())
-            return value, timestamp
-        return 50.0, datetime.now().isoformat()
+        metrics = self.get_global_metrics()
+        if not metrics:
+            return 50.0, datetime.now().isoformat()
+        
+        quote = metrics.get("quote", {}).get("USD", {})
+        
+        # Primary signal: 24h market cap change
+        mcap_change = quote.get("total_market_cap_yesterday_percentage_change", 0)
+        btc_dom = metrics.get("btc_dominance", 50)
+        btc_dom_change = metrics.get("btc_dominance_24h_percentage_change", 0)
+        
+        # Volume ratio: stablecoin vs altcoin volume
+        stable_vol = quote.get("stablecoin_volume_24h", 0)
+        alt_vol = quote.get("altcoin_volume_24h", 0)
+        vol_ratio = alt_vol / stable_vol if stable_vol > 0 else 1.0
+        
+        # Calculate Fear & Greed proxy (0-100)
+        # Based on: mcap_change (major) + btc_dom trend + volume ratio
+        fg_value = 50.0  # neutral baseline
+        
+        # Market cap change: typical range -10% to +10%
+        # Map to -30 to +30 FG contribution
+        fg_value += (mcap_change / 10.0) * 30
+        
+        # BTC dominance: high dominance = fear/risk-off (bearish alt season)
+        # Normal range 40-65%, map to -15 to +15
+        btc_dom_norm = (btc_dom - 52) / 10 * 15
+        fg_value -= btc_dom_norm
+        
+        # Volume ratio: high altcoin volume = greed/risk-on
+        # Normal range 0.5-2.0, map to -10 to +10
+        vol_contribution = (vol_ratio - 1.0) * 10
+        fg_value += vol_contribution
+        
+        # Clamp to 0-100
+        fg_value = max(0, min(100, fg_value))
+        
+        timestamp = metrics.get("last_updated", datetime.now().isoformat())
+        
+        return fg_value, timestamp
     
-    def get_social_sentiment(self, symbols: List[str] = None) -> Tuple[float, float]:
+    def get_price_data(self, symbols: List[str]) -> Dict[str, Dict]:
+        """Get price + change data for symbols"""
+        sym_str = ",".join(symbols)
+        data = self._make_request(
+            "/v1/cryptocurrency/quotes/latest",
+            {"symbol": sym_str}
+        )
+        if data and "data" in data:
+            return data["data"]
+        return {}
+    
+    def get_sentiment_from_momentum(self, symbols: List[str] = None) -> Tuple[float, float]:
         """
-        Get social sentiment score from social posts
-        Returns: (score -1 to +1, confidence 0 to 1)
+        Calculate sentiment from price momentum across major tokens.
+        Returns: (sentiment -1 to +1, confidence 0 to 1)
         """
         if symbols is None:
             symbols = ["BTC", "ETH", "BNB"]
         
-        # Get recent social posts via CMC
-        total_sentiment = 0.0
+        price_data = self.get_price_data(symbols)
+        
+        total_score = 0.0
         count = 0
         
-        for symbol in symbols[:5]:  # Top 5 for efficiency
-            data = self._make_request("/v2/social/posts", {
-                "symbol": symbol,
-                "limit": 50
-            })
-            if data and "data" in data:
-                posts = data["data"].get(symbol, [])
-                for post in posts:
-                    # Simple sentiment based on platforms + engagement
-                    engagement = post.get("engagement_score", 0)
-                    platforms = post.get("platforms", [])
-                    # More platforms = higher reach = higher weight
-                    platform_count = len(platforms) if isinstance(platforms, list) else 1
-                    total_sentiment += (engagement * platform_count)
-                    count += 1
+        for symbol in symbols:
+            if symbol not in price_data:
+                continue
+            
+            quote = price_data[symbol].get("quote", {}).get("USD", {})
+            if not quote:
+                continue
+            
+            # Combine 1h, 24h, 7d momentum
+            chg_1h = quote.get("percent_change_1h", 0) or 0
+            chg_24h = quote.get("percent_change_24h", 0) or 0
+            chg_7d = quote.get("percent_change_7d", 0) or 0
+            
+            # Weighted momentum: recent matters more
+            momentum = (chg_1h * 3 + chg_24h * 2 + chg_7d) / 6
+            
+            # Normalize: typical crypto is -10% to +10% daily
+            # Scale to -1 to +1
+            normalized = max(-1.0, min(1.0, momentum / 10.0))
+            
+            total_score += normalized
+            count += 1
         
         if count == 0:
             return 0.0, 0.0
         
-        # Normalize to -1 to +1
-        raw_sentiment = total_sentiment / count
-        normalized = (raw_sentiment - 50) / 50  # Assume raw is 0-100
-        normalized = max(-1.0, min(1.0, normalized))
+        sentiment = total_score / count
         
-        confidence = min(1.0, count / 50)  # More data = higher confidence
+        # Confidence based on agreement between tokens
+        # If all tokens moving same direction = high confidence
+        confidence = min(1.0, count / 3.0)
         
-        return normalized, confidence
+        return sentiment, confidence
     
-    def get_funding_rates(self, symbols: List[str] = None) -> Tuple[float, float]:
+    def get_btc_dominance_signal(self) -> float:
         """
-        Get funding rates for perpetual futures
-        Returns: (average funding rate, sentiment: positive=bullish, negative=bearish)
+        BTC Dominance as sentiment indicator:
+        - BTC dominance rising = retail fleeing to BTC (fear)
+        - BTC dominance falling = alt season (greed)
+        
+        Returns: -50 to +50 (bearish to bullish)
         """
-        if symbols is None:
-            symbols = ["BTC", "ETH", "BNB"]
-        
-        rates = []
-        for symbol in symbols:
-            # Try funding rate endpoint
-            data = self._make_request(f"/v2/futures/{symbol}/funding_rate")
-            if data and "data" in data:
-                funding = data["data"].get("funding_rate", 0)
-                if funding is not None:
-                    rates.append(float(funding))
-        
-        if not rates:
-            return 0.0, 0.0
-        
-        avg_rate = sum(rates) / len(rates)
-        
-        # Scale to -50 to +50 (funding typically -0.1% to +0.1%)
-        scaled = avg_rate * 500  # 0.1% → 50
-        
-        return avg_rate, scaled
-    
-    def get_price_momentum(self, symbols: List[str] = None) -> float:
-        """
-        Calculate price momentum (1h change)
-        Returns: momentum score -100 to +100
-        """
-        if symbols is None:
-            symbols = ["BTC", "ETH", "BNB"]
-        
-        momentum = 0.0
-        count = 0
-        
-        for symbol in symbols:
-            data = self._make_request("/v2/quotes/latest", {
-                "symbol": symbol,
-                "convert": "USD"
-            })
-            if data and "data" in data:
-                quote = data["data"].get(symbol, {}).get("quote", {}).get("USD", {})
-                change_1h = quote.get("percent_change_1h", 0)
-                change_24h = quote.get("percent_change_24h", 0)
-                
-                # Weight: recent momentum more important
-                score = (change_1h * 2 + change_24h) / 3
-                momentum += score
-                count += 1
-        
-        if count == 0:
+        metrics = self.get_global_metrics()
+        if not metrics:
             return 0.0
         
-        # Normalize: typical crypto change is -10% to +10%
-        # Cap at ±50
-        normalized = max(-50, min(50, momentum / count * 5))
+        btc_dom = metrics.get("btc_dominance", 50)
+        btc_dom_yesterday = btc_dom - (metrics.get("btc_dominance_24h_percentage_change", 0))
+        
+        # Normal: 45-60 range
+        # Below 50 = alt season (greed +50)
+        # Above 55 = BTC safe haven (fear -50)
+        normalized = 50 - btc_dom
+        normalized = max(-50, min(50, normalized * 10))
+        
         return normalized
     
     def calculate_composite_signal(self) -> Dict:
         """
-        Calculate the composite sentiment signal
+        Calculate composite sentiment signal
         Returns dict with all components and final score
         """
         # Fetch all signals
-        fg_value, fg_timestamp = self.get_fear_greed()
-        social_score, social_confidence = self.get_social_sentiment()
-        funding_rate, funding_sentiment = self.get_funding_rates()
-        momentum = self.get_price_momentum()
+        fg_value, fg_timestamp = self.get_fear_greed_proxy()
         
-        # Normalize Fear & Greed: 0-100 → -50 to +50
-        fg_normalized = fg_value - 50
+        # Momentum sentiment
+        social_score, social_confidence = self.get_sentiment_from_momentum()
         
-        # Apply weights
+        # BTC dominance signal
+        btc_dom_signal = self.get_btc_dominance_signal()
+        
+        # Get current prices for reference
+        prices = self.get_price_data(["BTC", "ETH", "BNB"])
+        btc_price = prices.get("BTC", {}).get("quote", {}).get("USD", {}).get("price", 0)
+        
+        # === WEIGHTED COMPOSITE SIGNAL ===
+        # Fear & Greed proxy: 40%
+        fg_normalized = fg_value - 50  # 0-100 → -50 to +50
+        
+        # Momentum: 35%
+        momentum_normalized = social_score * 50  # -1 to +1 → -50 to +50
+        
+        # BTC dominance: 25%
+        # (direct market sentiment indicator)
+        
         raw_score = (
-            fg_normalized * WEIGHT_FEAR_GREED +
-            social_score * social_confidence * 50 * WEIGHT_SOCIAL +
-            funding_sentiment * WEIGHT_FUNDING
+            fg_normalized * 0.40 +
+            momentum_normalized * 0.35 +
+            btc_dom_signal * 0.25
         )
         
-        # Apply momentum filter
+        # Apply momentum filter (prevent sudden reversals)
         prev_signal = self.signal_history[-1]["composite"] if self.signal_history else 0
         momentum_delta = raw_score - prev_signal
         
         if abs(momentum_delta) > 30:
-            # Sudden reversal - reduce confidence
+            # Sudden reversal - reduce confidence, blend with prev
             raw_score = prev_signal + (momentum_delta * 0.5)
         
         # Clamp to -100 to +100
         composite = max(-100, min(100, raw_score))
         
-        # Determine action based on signal
+        # Determine action
         if composite > 40:
             action = "TAKE_PROFIT"
         elif composite > 20:
@@ -213,35 +246,52 @@ class SignalEngine:
             "fear_greed": fg_value,
             "social_sentiment": social_score,
             "social_confidence": social_confidence,
-            "funding_rate": funding_rate,
-            "funding_sentiment": funding_sentiment,
-            "momentum": momentum,
+            "btc_dominance_signal": btc_dom_signal,
+            "momentum_delta": momentum_delta,
             "composite": composite,
             "action": action,
             "prev_composite": prev_signal,
-            "momentum_delta": momentum_delta
+            "btc_price": btc_price,
+            "prices": {s: prices.get(s, {}).get("quote", {}).get("USD", {}).get("price", 0) 
+                      for s in ["BTC", "ETH", "BNB"]}
         }
         
         # Store in history
         self.signal_history.append(signal_data)
-        if len(self.signal_history) > SIGNAL_HISTORY_WINDOW * 12:  # 5min cycles
+        if len(self.signal_history) > 288:  # 24h of 5-min cycles
             self.signal_history.pop(0)
         
         self.last_fetch = datetime.now()
         
         return signal_data
     
+    def get_market_prices(self) -> Dict[str, float]:
+        """Get current prices for all primary tokens"""
+        prices = {}
+        data = self._make_request(
+            "/v1/cryptocurrency/quotes/latest",
+            {"symbol": "BTC,ETH,BNB,USDT,USDC,FDUSD,USD1,USDe,CAKE,TWT"}
+        )
+        if data and "data" in data:
+            for symbol, info in data["data"].items():
+                quote = info.get("quote", {}).get("USD", {})
+                prices[symbol] = quote.get("price", 0)
+        return prices
+    
     def get_signal_summary(self) -> str:
         """Get human-readable signal summary"""
         sig = self.calculate_composite_signal()
+        prices = sig.get("prices", {})
+        btc = prices.get("BTC", 0)
+        
         return f"""
 ╔══════════════════════════════════════════╗
 ║         SENTIMENTSWIPE SIGNAL            ║
 ╠══════════════════════════════════════════╣
-║ Fear & Greed: {sig['fear_greed']:.1f}/100               ║
-║ Social: {sig['social_sentiment']:+.2f} ({sig['social_confidence']:.0%} conf)        ║
-║ Funding Rate: {sig['funding_rate']:.4f}%              ║
-║ Momentum: {sig['momentum']:+.1f}                    ║
+║ BTC Price:  ${btc:,.0f}                      ║
+║ Fear & Greed: {sig['fear_greed']:.1f}/100              ║
+║ Momentum: {sig['social_sentiment']:+.3f} ({sig['social_confidence']:.0%} conf)    ║
+║ BTC Dom Signal: {sig['btc_dominance_signal']:+.1f}            ║
 ╠══════════════════════════════════════════╣
 ║ COMPOSITE: {sig['composite']:+.1f}                       ║
 ║ ACTION: {sig['action']}               ║

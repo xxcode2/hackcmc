@@ -9,8 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # === API KEYS ===
-CMC_API_KEY = os.getenv("CMC_API_KEY", "")  # CoinMarketCap API key
-# Get free key at: https://coinmarketcap.com/api/
+CMC_API_KEY="e234f83950e44af38f101284ec4692c1"  # CoinMarketCap API key
 
 # === AGENT WALLET ===
 AGENT_PRIVATE_KEY = os.getenv("AGENT_PRIVATE_KEY", "")
