@@ -1,0 +1,165 @@
+{
+  "meta": {
+    "started_at": "2026-06-10T08:56:36.624286+00:00",
+    "starting_capital": 100.0,
+    "signal": {
+      "fear_greed": 28.6,
+      "momentum": -0.314,
+      "btc_dom_signal": -50.0,
+      "composite": -26.6,
+      "action": "ACCUMULATE"
+    },
+    "note": "ACCUMULATE mode - buying the dip in fear"
+  },
+  "entries": [
+    {
+      "token": "BTC",
+      "entry_price": 61227.14,
+      "amount_usd": 10.0,
+      "quantity": 0.000163326263483808,
+      "side": "BUY",
+      "stop_loss": 58165.78,
+      "take_profit": 67349.85,
+      "entry_time": "2026-06-10T08:56:36.624286+00:00",
+      "id": "ENT-001",
+      "entry_value": 10.0,
+      "status": "OPEN"
+    },
+    {
+      "token": "ETH",
+      "entry_price": 1620.48,
+      "amount_usd": 10.0,
+      "quantity": 0.006171011058451817,
+      "side": "BUY",
+      "stop_loss": 1539.46,
+      "take_profit": 1782.53,
+      "entry_time": "2026-06-10T08:56:36.624286+00:00",
+      "id": "ENT-002",
+      "entry_value": 10.0,
+      "status": "OPEN"
+    },
+    {
+      "token": "BNB",
+      "entry_price": 584.68,
+      "amount_usd": 10.0,
+      "quantity": 0.017103372785113227,
+      "side": "BUY",
+      "stop_loss": 555.45,
+      "take_profit": 643.15,
+      "entry_time": "2026-06-10T08:56:36.624286+00:00",
+      "id": "ENT-003",
+      "entry_value": 10.0,
+      "status": "OPEN"
+    },
+    {
+      "token": "BTC",
+      "entry_price": 61227.14,
+      "amount_usd": 10.0,
+      "quantity": 0.000163326263483808,
+      "side": "BUY",
+      "stop_loss": 58165.78,
+      "take_profit": 67349.85,
+      "entry_time": "2026-06-10T08:56:36.624286+00:00",
+      "id": "ENT-004",
+      "entry_value": 10.0,
+      "status": "OPEN"
+    },
+    {
+      "token": "ETH",
+      "entry_price": 1620.48,
+      "amount_usd": 10.0,
+      "quantity": 0.006171011058451817,
+      "side": "BUY",
+      "stop_loss": 1539.46,
+      "take_profit": 1782.53,
+      "entry_time": "2026-06-10T08:56:36.624286+00:00",
+      "id": "ENT-005",
+      "entry_value": 10.0,
+      "status": "OPEN"
+    },
+    {
+      "token": "CAKE",
+      "entry_price": 1.3052,
+      "amount_usd": 10.0,
+      "quantity": 7.661661048115232,
+      "side": "BUY",
+      "stop_loss": 1.2399,
+      "take_profit": 1.4357,
+      "entry_time": "2026-06-10T08:56:36.624286+00:00",
+      "id": "ENT-006",
+      "entry_value": 10.0,
+      "status": "OPEN"
+    },
+    {
+      "token": "BTC",
+      "entry_price": 61227.14,
+      "amount_usd": 10.0,
+      "quantity": 0.000163326263483808,
+      "side": "BUY",
+      "stop_loss": 58165.78,
+      "take_profit": 67349.85,
+      "entry_time": "2026-06-10T08:56:36.624286+00:00",
+      "id": "ENT-007",
+      "entry_value": 10.0,
+      "status": "OPEN"
+    },
+    {
+      "token": "BNB",
+      "entry_price": 584.68,
+      "amount_usd": 10.0,
+      "quantity": 0.017103372785113227,
+      "side": "BUY",
+      "stop_loss": 555.45,
+      "take_profit": 643.15,
+      "entry_time": "2026-06-10T08:56:36.624286+00:00",
+      "id": "ENT-008",
+      "entry_value": 10.0,
+      "status": "OPEN"
+    },
+    {
+      "token": "ETH",
+      "entry_price": 1620.48,
+      "amount_usd": 10.0,
+      "quantity": 0.006171011058451817,
+      "side": "BUY",
+      "stop_loss": 1539.46,
+      "take_profit": 1782.53,
+      "entry_time": "2026-06-10T08:56:36.624286+00:00",
+      "id": "ENT-009",
+      "entry_value": 10.0,
+      "status": "OPEN"
+    },
+    {
+      "token": "BTC",
+      "entry_price": 61227.14,
+      "amount_usd": 10.0,
+      "quantity": 0.000163326263483808,
+      "side": "BUY",
+      "stop_loss": 58165.78,
+      "take_profit": 67349.85,
+      "entry_time": "2026-06-10T08:56:36.624286+00:00",
+      "id": "ENT-010",
+      "entry_value": 10.0,
+      "status": "OPEN"
+    }
+  ],
+  "closed_trades": [],
+  "current_prices": {
+    "BTC": 61227.14,
+    "ETH": 1620.48,
+    "BNB": 584.68,
+    "CAKE": 1.3052,
+    "FDUSD": 0.9973,
+    "USDT": 0.9992,
+    "USDC": 0.9998
+  },
+  "signal_log": [
+    {
+      "fear_greed": 28.6,
+      "momentum": -0.314,
+      "btc_dom_signal": -50.0,
+      "composite": -26.6,
+      "action": "ACCUMULATE"
+    }
+  ]
+}

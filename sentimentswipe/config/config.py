@@ -13,9 +13,11 @@ load_dotenv()
 CMC_API_KEY = os.getenv("CMC_API_KEY", "e234f83950e44af38f101284ec4692c1")
 
 # === AGENT WALLET ===
-# Generate fresh key for competition. NEVER share this.
-# Format: 64 character hex string (no 0x prefix)
-AGENT_PRIVATE_KEY = os.getenv("AGENT_PRIVATE_KEY", "")
+# Fresh wallet for hackathon trading - generated 2026-06-10
+# Address BSC: 0xc047e0BCee8876348B5290a85bD4C1F54c4621bD
+# USE ONLY FOR HACKATHON - NOT main funds
+AGENT_PRIVATE_KEY = os.getenv("AGENT_PRIVATE_KEY", "dfa72116b3d718212b4ac5f508d51240295a79ebcb3eccb0289b381c5a8e6dda")
+AGENT_WALLET_ADDRESS = os.getenv("AGENT_WALLET_ADDRESS", "0xc047e0BCee8876348B5290a85bD4C1F54c4621bD")
 
 # === TRADING PAIRS (BSC/PancakeSwap) ===
 PRIMARY_TOKENS = ["BTC", "ETH", "USDT", "USDC", "FDUSD", "USD1", "USDe", "BNB", "CAKE"]
