@@ -1,0 +1,17 @@
+{
+  "portfolio_value": 100.0,
+  "starting_capital": 100.0,
+  "pnl": 0.0,
+  "pnl_pct": 0.0,
+  "drawdown": 0.0,
+  "open_positions": [],
+  "trades": [],
+  "last_signal": {
+    "fear_greed": 28.0,
+    "momentum": -22.0,
+    "composite": -25.0,
+    "action": "ACCUMULATE"
+  },
+  "running": false,
+  "peak_value": 100.0
+}
