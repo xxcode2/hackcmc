@@ -12,10 +12,11 @@ load_dotenv()
 # CoinMarketCap API key - get free key at https://coinmarketcap.com/api/
 CMC_API_KEY = os.getenv("CMC_API_KEY", "e234f83950e44af38f101284ec4692c1")
 
-# === AGENT WALLET (REPLACED 2026-06-10 - old wallet compromised) ===
-# Address BSC: 0x25019886bcC751dc9743621A7371D63018a88990
-AGENT_PRIVATE_KEY = os.getenv("AGENT_PRIVATE_KEY", "935602bbb3e83964ca6b6808ec7af6285e0d086ddc28e672965e086cdfd19147")
-AGENT_WALLET_ADDRESS = os.getenv("AGENT_WALLET_ADDRESS", "0x25019886bcC751dc9743621A7371D63018a88990")
+# === TWAK WALLET (Primary - MCP server handles signing) ===
+# Address BSC: 0xc1Ee4085239D86eB55a3BE5Ba0e83b3c3283381A
+# No raw private key needed - TWAK MCP server handles all signing
+# Start MCP: twak serve --rest --port 3000 --password "SentimentSwipe2026!"
+# Wallet MUST be initialized via MCP client before trading actions
 
 # === TRADING PAIRS (BSC/PancakeSwap) ===
 PRIMARY_TOKENS = ["BTC", "ETH", "USDT", "USDC", "FDUSD", "USD1", "USDe", "BNB", "CAKE"]
